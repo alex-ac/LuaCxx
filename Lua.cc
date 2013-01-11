@@ -7,10 +7,11 @@ extern "C" {
 
 using namespace util;
 
-int Lua::call(lua_State *_vm) {
-    auto vm = Lua(_vm);
-    auto function = (std::function<int(Lua&)> *)vm.userdata(lua_upvalueindex(1));
-    return (*function)(vm);
+int Lua::call(lua_State *vm) {
+    auto function = (std::function<int(Lua&)> *)
+        lua_touserdata(vm, lua_upvalueindex(1));
+    auto l = Lua(vm);
+    return (*function)(l);
 }
 
 Lua::Lua(lua_State *vm):
@@ -20,8 +21,10 @@ Lua::Lua(lua_State *vm):
 
 Lua::Lua():
     del(true),
-    vm(lua_newstate(nullptr, nullptr))
-{}
+    vm(luaL_newstate())
+{
+    luaL_openlibs(vm);
+}
 
 Lua::~Lua() {
     for (auto lambda : lambdas)
@@ -35,6 +38,10 @@ void Lua::lambda(std::function<int(Lua&)> *function, const std::string& name) {
     userdata(function);
     closure(Lua::call);
     save(name);
+}
+
+void Lua::file(const std::string& name) {
+    luaL_dofile(vm, name.c_str()) && lua_error(vm);
 }
 
 void Lua::load(const std::string& name, int i) {
@@ -55,7 +62,7 @@ void Lua::pop(const int i) {
 }
 
 void Lua::remove(const int i) {
-    if (lua_gettop(vm) - (i>0?i:-i) < 1)
+    if (lua_gettop(vm) - (i>0?i:-i) < 0)
         luaL_error(vm, "Invalid remove operation (out of stack)!");
     lua_remove(vm, i);
 }
@@ -65,7 +72,7 @@ void Lua::table() {
 }
 
 void Lua::metatable(const int i) {
-    if (lua_gettop(vm) - (i>0?i:-i) < 1 || !lua_istable(vm, i))
+    if (lua_gettop(vm) - (i>0?i:-i) < 0 || !lua_istable(vm, i))
         luaL_error(vm, "Invalid set metatable operation (out of stack)!");
     lua_setmetatable(vm, i);
 }
@@ -77,15 +84,15 @@ void Lua::closure(int (*callback)(lua_State *), const int i) {
 }
 
 void Lua::copy(const int i) {
-    if (lua_gettop(vm) - (i>0?i:-i) < 1)
+    if (lua_gettop(vm) - (i>0?i:-i) < 0)
         luaL_error(vm, "Invalid copy operation (out of stack)!");
     lua_pushvalue(vm, i);
 }
 
 void Lua::save(const std::string& name, const int i) {
     int t = i;
-    if (lua_gettop(vm) - (i>0?i:-i) < 1 || !lua_istable(vm, i)) {
-        if (-1 == i)
+    if (lua_gettop(vm) - (i>0?i:-i) < 0 || !lua_istable(vm, i)) {
+        if (-2 == i)
             t = LUA_GLOBALSINDEX;
         else
             luaL_error(vm, "Invalid save operation (out of stack)!");
@@ -94,7 +101,7 @@ void Lua::save(const std::string& name, const int i) {
 }
 
 bool Lua::is_nil(const int i) {
-    if (lua_gettop(vm) - (i>0?i:-i) < 1)
+    if (lua_gettop(vm) - (i>0?i:-i) < 0)
         luaL_error(vm, "Invalid is nil operation (out of stack)!");
     return lua_isnil(vm, i);
 }
@@ -110,7 +117,7 @@ void Lua::object(const LuaClass *object, const std::string& name) {
 }
 
 LuaClass * Lua::object(const int i) {
-    if (lua_gettop(vm) - (i>0?i:-i) < 1)
+    if (lua_gettop(vm) - (i>0?i:-i) < 0)
         luaL_error(vm, "Invalid object operation (out of stack)!");
     if (!lua_istable(vm, i))
         luaL_error(vm, "Invalid object (table expected)!");
@@ -125,8 +132,8 @@ void Lua::userdata(const void *d) {
 }
 
 void * Lua::userdata(const int i) {
-    if (lua_gettop(vm) - (i>0?i:-i) < 1)
-        luaL_error(vm, "Invalid userdata operation (out of stack)!");
+    if (lua_gettop(vm) - (i>0?i:-i) < 0)
+        luaL_error(vm, "Invalid userdata operation (out of stack)! %d, %d", lua_gettop(vm), i);
     if (!lua_isuserdata(vm, i))
         luaL_error(vm, "Invalid userdata operation (userdata expected)!");
     return lua_touserdata(vm, i);
@@ -137,7 +144,7 @@ void Lua::number(const lua_Number n) {
 }
 
 lua_Number Lua::tonumber(const int i) {
-    if (lua_gettop(vm) - (i>0?i:-i) < 1)
+    if (lua_gettop(vm) - (i>0?i:-i) < 0)
         luaL_error(vm, "Invalid tonumber operation (out of stack)!");
     if (!lua_isnumber(vm, i))
         luaL_error(vm, "Invalid tonumber operation (number expected)!");
@@ -149,7 +156,7 @@ void Lua::string(const std::string& string) {
 }
 
 std::string Lua::string(const int i) {
-    if (lua_gettop(vm) - (i>0?i:-i) < 1)
+    if (lua_gettop(vm) - (i>0?i:-i) < 0)
         luaL_error(vm, "Invalid string operation (out of stack)!");
     if (!lua_isstring(vm, i))
         luaL_error(vm, "Invalid string operation (string expected)!");
@@ -161,11 +168,19 @@ void Lua::boolean(const bool b) {
 }
 
 bool Lua::boolean(const int i) {
-    if (lua_gettop(vm) - (i>0?i:-i) < 1)
+    if (lua_gettop(vm) - (i>0?i:-i) < 0)
         luaL_error(vm, "Invalid boolean operation (out of stack)!");
     if (!lua_isboolean(vm, i))
         luaL_error(vm, "Invalid boolean operation (boolean expected)!");
     return lua_toboolean(vm, i);
+}
+
+void util::export_function(Lua& vm, const std::string& name, void (*callback)()) {
+    auto function = new std::function<int(Lua&)>([callback] (Lua& vm) -> int {
+        (*callback)();
+        return 0;
+    });
+    vm.lambda(function, name);
 }
 
 using namespace util::lua;
@@ -201,8 +216,5 @@ lua_Number arg<lua_Number>(Lua& vm, const int i) {
 template <>
 bool arg<bool>(Lua& vm, const int i) {
     return vm.boolean(i);
-}
-
-void args(Lua& vm, const int i) {
 }
 

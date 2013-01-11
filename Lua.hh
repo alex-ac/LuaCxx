@@ -42,6 +42,8 @@ public:
     void copy(const int i = -1);
     void save(const std::string& name, const int i = -2);
 
+    void file(const std::string& name);
+
     bool is_nil(const int i = -1);
 
     void object(const LuaClass *, const std::string& name);
@@ -176,26 +178,61 @@ lua_Number arg<lua_Number>(Lua& vm, const int i);
 template <>
 bool arg<bool>(Lua& vm, const int i);
 
-void args(Lua& vm, const int i = 1);
-
 template <typename T, typename... Args>
 std::tuple<T, Args...> args(Lua& vm, const int i = 1) {
     return std::tuple_cat(arg<T>(i), args<Args...>(vm, i + 1));
 }
 
+template <typename T>
+T args(Lua& vm, const int i) {
+    return arg<T>(i);
 }
+
+template <typename... Args> struct sizer {
+    static const int size = sizeof...(Args);
+};
+
+template <typename... Args>
+std::tuple<> args(Lua& vm, const int i = 1) {
+    static_assert(!sizer<Args...>::size, "Arguments provided!");
+    return std::tuple<>();
+}
+
+} // namespace util::lua
 
 template <typename R, class T, typename... Args>
 void export_method(Lua& vm, const std::string& name,
     R (T::*method)(Args...)) {
     auto function = new std::function<int(Lua&)>([method] (Lua& vm) -> int {
-        if (!std::is_void<R>::value)
-            return lua::ret<R>(vm,
-                (lua::arg<T>(vm, 1)->*method)(lua::args<Args...>(vm, 2)));
-        else {
-            (lua::arg<T>(vm, 1)->*method)(lua::args<Args...>(vm, 2));
-            return 0;
-        }
+        return lua::ret<R>(vm,
+            (lua::arg<T>(vm, 1)->*method)(lua::args<Args...>(vm, 2)));
+    });
+    vm.lambda(function, name);
+}
+
+template <class T, typename... Args>
+void export_method(Lua& vm, const std::string& name,
+    void (T::*method)(Args...)) {
+    auto function = new std::function<int(Lua&)>([method] (Lua& vm) -> int {
+        (lua::arg<T>(vm, 1)->*method)(lua::args<Args...>(vm, 2));
+        return 0;
+    });
+    vm.lambda(function, name);
+}
+
+template <typename R, class T>
+void export_method(Lua& vm, const std::string& name, R (T::*method)()) {
+    auto function = new std::function<int(Lua&)>([method] (Lua& vm) -> int {
+        return lua::ret<R>(vm, (lua::arg<T>(vm, 1)->*method)());
+    });
+    vm.lambda(function, name);
+}
+
+template <class T>
+void export_method(Lua& vm, const std::string& name, void (T::*method)()) {
+    auto function = new std::function<int(Lua&)>([method] (Lua& vm) -> int {
+        (lua::arg<T>(vm, 1)->*method());
+        return 0;
     });
     vm.lambda(function, name);
 }
@@ -204,15 +241,30 @@ template <typename R, typename... Args>
 void export_function(Lua& vm, const std::string& name,
     R (*callback)(Args...)) {
     auto function = new std::function<int(Lua&)>([callback] (Lua& vm) -> int {
-        if (!std::is_void<R>::value)
-            return lua::ret<R>(vm, (*callback)(lua::args<Args...>(vm)));
-        else {
-            (*callback)(lua::args<Args...>(vm));
-            return 0;
-        }
+        return lua::ret<R>(vm, (*callback)(lua::args<Args...>(vm, 1)));
     });
     vm.lambda(function, name);
 }
 
+template <typename... Args>
+void export_function(Lua& vm, const std::string& name,
+    void (*callback)(Args...)) {
+    auto function = new std::function<int(Lua&)>([callback] (Lua& vm) -> int {
+        (*callback)(lua::args<Args...>(vm));
+        return 0;
+    });
+    vm.lambda(function, name);
 }
+
+template <typename R>
+void export_function(Lua& vm, const std::string& name, R (*callback)()) {
+    auto function = new std::function<int(Lua&)>([callback] (Lua& vm) -> int {
+        return lua::ret<R>((*callback)());
+    });
+    vm.lambda(function, name);
+}
+
+void export_function(Lua& vm, const std::string& name, void (*callback)());
+
+} // namespace util;
 
