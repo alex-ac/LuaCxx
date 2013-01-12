@@ -186,10 +186,6 @@ const std::string Lua::LuaObject::class_name() {
     return "Object";
 }
 
-const std::string Lua::LuaObject::obj_class_name() const {
-    return "Object";
-}
-
 void Lua::export_function(const std::string& name, void (*callback)()) {
     auto function = new std::function<int(Lua&)>([callback] (Lua& vm) -> int {
         (*callback)();

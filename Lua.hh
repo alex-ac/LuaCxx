@@ -18,7 +18,6 @@ class LuaClass {
 private:
 protected:
 public:
-    virtual const std::string obj_class_name() const = 0;
 };
 
 class Lua {
@@ -131,7 +130,6 @@ public:
         static void export_class(Lua& vm);
         static void export_me(Lua& vm);
         static const std::string class_name();
-        virtual const std::string obj_class_name() const override;
     };
     /*
      * class LuaObject: public LuaClass {};
