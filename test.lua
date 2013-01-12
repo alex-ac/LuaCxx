@@ -13,5 +13,4 @@ t:test()
 print(t:test1())
 print(t:test2(2))
 t:test3(3)
-t:delete()
 

@@ -72,7 +72,8 @@ void Lua::table() {
 }
 
 void Lua::metatable(const int i) {
-    if (lua_gettop(vm) - (i>0?i:-i) < 0 || !lua_istable(vm, i))
+    if (lua_gettop(vm) - (i>0?i:-i) < 0
+        || !lua_istable(vm, i) && !lua_isuserdata(vm, i))
         luaL_error(vm, "Invalid set metatable operation (out of stack)!");
     lua_setmetatable(vm, i);
 }
@@ -106,6 +107,14 @@ bool Lua::is_nil(const int i) {
     return lua_isnil(vm, i);
 }
 
+static int collect(lua_State *vm) {
+    if (lua_gettop(vm) != 1 || !lua_isuserdata(vm, 1))
+        luaL_error(vm, "Invalid collect operation!");
+    LuaClass * object = (LuaClass *)lua_touserdata(vm, 1);
+    object->collect();
+    return 0;
+}
+
 void Lua::object(const LuaClass *object, const std::string& name) {
     load(name);
     table();
@@ -113,7 +122,12 @@ void Lua::object(const LuaClass *object, const std::string& name) {
     metatable();
     remove(-2);
     userdata(object);
+    table();
+    lua_pushcfunction(vm, collect);
+    save("__gc");
+    metatable();
     save("__self__");
+    const_cast<LuaClass *>(object)->reference();
 }
 
 LuaClass * Lua::object(const int i) {

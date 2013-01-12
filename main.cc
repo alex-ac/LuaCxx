@@ -20,21 +20,12 @@ int test3(int a) {
 
 class test_class : public util::LuaClass {
 public:
-    static test_class *construct() {
-        return new test_class();
-    }
-
-    void deconstruct() {
-        delete this;
-    }
-
     static void export_me(util::Lua& vm) {
         vm.export_class<test_class>();
     }
 
     static void export_class(util::Lua& vm) {
-        vm.export_function("new", &test_class::construct);
-        vm.export_method("delete", &test_class::deconstruct);
+        vm.export_constructor<test_class>();
         vm.export_method("test", &test_class::test);
         vm.export_method("test1", &test_class::test1);
         vm.export_method("test2", &test_class::test2);
@@ -42,10 +33,6 @@ public:
     }
 
     static const std::string class_name() {
-        return "test_class";
-    }
-
-    virtual const  std::string obj_class_name() const override {
         return "test_class";
     }
 

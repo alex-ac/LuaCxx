@@ -16,8 +16,24 @@ namespace util {
 
 class LuaClass {
 private:
+    unsigned int references;
+    bool track_references;
 protected:
 public:
+    LuaClass():
+        references(0),
+        track_references(false)
+    {}
+    void enable_tracking() {
+        track_references = true;
+    }
+    void reference() {
+        references++;
+    }
+    void collect() {
+        if (track_references && !--references)
+            delete this;
+    }
 };
 
 class Lua {
@@ -58,9 +74,9 @@ protected:
         return std::tuple<T>(arg<T>( i));
     }
 
-    template <typename... Args> struct sizer {
+/*    template <typename... Args> struct sizer {
         static const int size = sizeof...(Args);
-    };
+    };*/
 
     template <int N> struct apply_method {
         template <class T, typename R, typename... MethodArgs,
@@ -79,6 +95,14 @@ protected:
             std::tuple<TupleArgs...>& t, Args... args) {
             return
                 apply_function<N-1>::apply(function, t, std::get<N-1>(t), args...);
+        }
+    };
+
+    template <int N, class T> struct apply_constructor {
+        template <typename... TupleArgs, typename... Args>
+        static T * apply(std::tuple<TupleArgs...>& t, Args... args) {
+            return
+                apply_constructor<N-1, T>::apply(t, std::get<N-1>(t), args...);
         }
     };
 
@@ -265,6 +289,29 @@ public:
     }
 
     void export_function(const std::string& name, void (*callback)());
+
+    template <class T, typename Arg1, typename... Args>
+    void export_constructor() {
+        auto function = new std::function<int(Lua&)>([] (Lua& vm) -> int {
+            auto tuple = vm.args<Arg1, Args...>(1);
+            T *object =
+                apply_constructor<std::tuple_size<decltype(tuple)>::value, T>
+                    ::apply(tuple);
+            static_cast<LuaClass *>(object)->enable_tracking();
+            return vm.ret(object);
+        });
+        lambda(function, "new");
+    }
+
+    template <class T>
+    void export_constructor() {
+        auto function = new std::function<int(Lua&)>([] (Lua& vm) -> int {
+            T *object = new T();
+            static_cast<LuaClass *>(object)->enable_tracking();
+            return vm.ret(object);
+        });
+        lambda(function, "new");
+    }
 };
 
 template <>
@@ -310,6 +357,13 @@ template <> struct Lua::apply_function<0> {
         std::tuple<TupleArgs...>& t, Args... args) {
         return
             (*function)(args...);
+    }
+};
+
+template <class T> struct Lua::apply_constructor<0, T> {
+    template <typename... TupleArgs, typename... Args>
+    static T * apply(std::tuple<TupleArgs...>& t, Args... args) {
+        return new T(args...);
     }
 };
 

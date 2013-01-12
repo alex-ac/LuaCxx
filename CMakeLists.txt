@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 2.8.9)
 
 project (LuaCxx CXX)
 
-set (LuaCxx_VERSION_MAJOR 0)
-set (LuaCxx_VERSION_MINOR 1)
+set (LuaCxx_VERSION_MAJOR 1)
+set (LuaCxx_VERSION_MINOR 0)
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
@@ -34,5 +34,10 @@ set (CPACK_PACKAGE_VERSION_MINOR "${LuaCxx_VERSION_MINOR}")
 include (CPack)
 
 include (CTest)
+enable_testing()
 set (CTEST_PROJECT_NAME "LuaCxx")
+
+add_executable(LuaCxx_test main.cc)
+target_link_libraries(LuaCxx_test LuaCxx_static)
+add_test(NAME Test WORKING_DIRECTORY ${PROJECT_SOURCE_DIR} COMMAND LuaCxx_test)
 
