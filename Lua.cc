@@ -218,3 +218,12 @@ bool arg<bool>(Lua& vm, const int i) {
     return vm.boolean(i);
 }
 
+template <>
+lua_Integer arg<lua_Integer>(Lua& vm, const int i) {
+    return vm.tonumber(i);
+}
+
+template <>
+int arg<int>(Lua& vm, const int i) {
+    return vm.tonumber(i);
+}
