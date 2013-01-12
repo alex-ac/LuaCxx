@@ -27,6 +27,8 @@ Add static void export_class(Lua& vm) method to your class.
 It must looks like this one:
 
     static void SomeClass::export_class(Lua& vm) {
+        vm.export_constructor<SomeClass, Arg1type, Arg2type, Arg3type>();
+        // vm.export_constructor<SomeClass>();
         vm.export_function("static_method", &SomeClass::static_method);
         vm.export_method("simple_method", &SomeClass::simple_method);
     }
