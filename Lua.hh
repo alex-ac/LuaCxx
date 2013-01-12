@@ -160,6 +160,9 @@ int ret<std::string>(Lua& vm, const std::string r);
 template <>
 int ret<bool>(Lua& vm, const bool r);
 
+template <>
+int ret<int>(Lua& vm, const int r);
+
 template <class T>
 T arg(Lua& vm, const int i) {
     if (std::is_base_of<util::LuaClass, T>::value) {
@@ -308,7 +311,7 @@ void export_function(Lua& vm, const std::string& name,
 template <typename R>
 void export_function(Lua& vm, const std::string& name, R (*callback)()) {
     auto function = new std::function<int(Lua&)>([callback] (Lua& vm) -> int {
-        return lua::ret<R>((*callback)());
+        return lua::ret<R>(vm, (*callback)());
     });
     vm.lambda(function, name);
 }

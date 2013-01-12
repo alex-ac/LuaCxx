@@ -204,6 +204,12 @@ int ret<bool>(Lua& vm, const bool r) {
 }
 
 template <>
+int ret<int>(Lua& vm, const int r) {
+    vm.number(r);
+    return 1;
+}
+
+template <>
 std::string arg<std::string>(Lua& vm, const int i) {
     return vm.string(i);
 }
