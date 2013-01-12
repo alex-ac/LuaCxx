@@ -175,76 +175,75 @@ bool Lua::boolean(const int i) {
     return lua_toboolean(vm, i);
 }
 
-void LuaObject::export_class(Lua& vm) {
+void Lua::LuaObject::export_class(Lua& vm) {
 }
 
-void LuaObject::export_me(Lua& vm) {
-    util::export_class<LuaObject>(vm);
+void Lua::LuaObject::export_me(Lua& vm) {
+    vm.export_class<LuaObject>();
 }
 
-const std::string LuaObject::class_name() {
+const std::string Lua::LuaObject::class_name() {
     return "Object";
 }
 
-const std::string LuaObject::obj_class_name() const {
+const std::string Lua::LuaObject::obj_class_name() const {
     return "Object";
 }
 
-void util::export_function(Lua& vm, const std::string& name, void (*callback)()) {
+void Lua::export_function(const std::string& name, void (*callback)()) {
     auto function = new std::function<int(Lua&)>([callback] (Lua& vm) -> int {
         (*callback)();
         return 0;
     });
-    vm.lambda(function, name);
+    lambda(function, name);
 }
 
-using namespace util::lua;
-
 template <>
-int ret<lua_Number>(Lua& vm, const lua_Number r) {
-    vm.number(r);
+int Lua::ret<lua_Number>(const lua_Number r) {
+    number(r);
     return 1;
 }
 
 template <>
-int ret<std::string>(Lua& vm, const std::string r) {
-    vm.string(r);
+int Lua::ret<std::string>(const std::string r) {
+    string(r);
     return 1;
 }
 
 template <>
-int ret<bool>(Lua& vm, const bool r) {
-    vm.boolean(r);
+int Lua::ret<bool>(const bool r) {
+    boolean(r);
     return 1;
 }
 
 template <>
-int ret<int>(Lua& vm, const int r) {
-    vm.number(r);
+int Lua::ret<int>(const int r) {
+    number(r);
     return 1;
 }
 
 template <>
-std::string arg<std::string>(Lua& vm, const int i) {
-    return vm.string(i);
+std::string Lua::arg<std::string>(const int i) {
+    return string(i);
 }
 
 template <>
-lua_Number arg<lua_Number>(Lua& vm, const int i) {
-    return vm.tonumber(i);
+lua_Number Lua::arg<lua_Number>(const int i) {
+    return tonumber(i);
 }
 
 template <>
-bool arg<bool>(Lua& vm, const int i) {
-    return vm.boolean(i);
+bool Lua::arg<bool>(const int i) {
+    return boolean(i);
 }
 
 template <>
-lua_Integer arg<lua_Integer>(Lua& vm, const int i) {
-    return vm.tonumber(i);
+lua_Integer Lua::arg<lua_Integer>(const int i) {
+    return tonumber(i);
 }
 
 template <>
-int arg<int>(Lua& vm, const int i) {
-    return vm.tonumber(i);
+int Lua::arg<int>(const int i) {
+    return tonumber(i);
 }
+

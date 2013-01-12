@@ -29,16 +29,16 @@ public:
     }
 
     static void export_me(util::Lua& vm) {
-        util::export_class<test_class>(vm);
+        vm.export_class<test_class>();
     }
 
     static void export_class(util::Lua& vm) {
-        util::export_function(vm, "new", &test_class::construct);
-        util::export_method(vm, "delete", &test_class::deconstruct);
-        util::export_method(vm, "test", &test_class::test);
-        util::export_method(vm, "test1", &test_class::test1);
-        util::export_method(vm, "test2", &test_class::test2);
-        util::export_method(vm, "test3", &test_class::test3);
+        vm.export_function("new", &test_class::construct);
+        vm.export_method("delete", &test_class::deconstruct);
+        vm.export_method("test", &test_class::test);
+        vm.export_method("test1", &test_class::test1);
+        vm.export_method("test2", &test_class::test2);
+        vm.export_method("test3", &test_class::test3);
     }
 
     static const std::string class_name() {
@@ -69,10 +69,10 @@ public:
 int main(int argc, char *argv[]) {
     util::Lua l;
 
-    util::export_function(l, "test", &test);
-    util::export_function(l, "test1", &test1);
-    util::export_function(l, "test2", &test2);
-    util::export_function(l, "test3", &test3);
+    l.export_function("test", &test);
+    l.export_function("test1", &test1);
+    l.export_function("test2", &test2);
+    l.export_function("test3", &test3);
 
     test_class::export_me(l);
 
