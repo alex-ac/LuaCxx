@@ -6,6 +6,8 @@
 #include <tuple>
 #include <type_traits>
 
+#include <iostream>
+
 extern "C" {
 #include <lua.h>
 };
@@ -16,6 +18,7 @@ class LuaClass {
 private:
 protected:
 public:
+    virtual const std::string obj_class_name() const = 0;
 };
 
 class Lua {
@@ -69,6 +72,7 @@ public:
     static void export_class(Lua& vm);
     static void export_me(Lua& vm);
     static const std::string class_name();
+    virtual const std::string obj_class_name() const override;
 };
 
 /*
@@ -95,15 +99,8 @@ public:
 
 template<class T, class P = util::LuaObject>
 void export_class(Lua& vm) {
-
     static_assert(std::is_base_of<util::LuaClass, T>::value,
         "LuaClass implementation expected!");
-    static_assert(T::class_name,
-        "static const std::string& class_name() member required!");
-    static_assert(T::export_class,
-        "static void export_class(Lua& vm) member required!");
-    static_assert(T::export_me,
-        "static void export_me(Lua& vm) member required!");
 
     auto name = T::class_name();
     auto parent_name = P::class_name();
@@ -139,15 +136,11 @@ void export_class(Lua& vm) {
 
 namespace lua {
 
-template <class T>
+template <typename T>
 int ret(Lua& vm, const T r) {
-    if (std::is_base_of<util::LuaClass, T>::value) {
-        static_assert(T::class_name,
-            "static const std::string& class_name() member required!");
-        vm.object(r, T::class_name());
-    } else {
-        vm.userdata(r);
-    }
+    static_assert(std::is_convertible<T, LuaClass*>::value,
+        "LuaClass * required!");
+    vm.object((LuaClass *)r, std::remove_pointer<T>::type::class_name());
     return 1;
 }
 
@@ -169,6 +162,15 @@ T arg(Lua& vm, const int i) {
         return *(T *)vm.object(i);
     } else {
         return *(T *)vm.userdata(i);
+    }
+}
+
+template <class T>
+T* argp(Lua& vm, const int i) {
+    if (std::is_base_of<util::LuaClass, T>::value) {
+        return (T *)vm.object(i);
+    } else {
+        return (T *)vm.userdata(i);
     }
 }
 
@@ -217,7 +219,7 @@ template <> struct apply_method<0> {
         typename... TupleArgs, typename... Args>
     static R apply(T* o, R (T::*method)(MethodArgs...),
         std::tuple<TupleArgs...>& t, Args... args) {
-        return (o->*t)(args...);
+        return (o->*method)(args...);
     }
 };
 
@@ -248,9 +250,9 @@ void export_method(Lua& vm, const std::string& name,
     R (T::*method)(Args...)) {
     auto function = new std::function<int(Lua&)>([method] (Lua& vm) -> int {
         auto tuple = lua::args<Args...>(vm, 2);
-        return lua::ret<R>(vm, 
+        return lua::ret(vm, 
             lua::apply_method<std::tuple_size<decltype(tuple)>::value>
-                ::apply(lua::arg<T>(vm, 1), method, tuple));
+                ::apply(lua::argp<T>(vm, 1), method, tuple));
     });
     vm.lambda(function, name);
 }
@@ -261,7 +263,7 @@ void export_method(Lua& vm, const std::string& name,
     auto function = new std::function<int(Lua&)>([method] (Lua& vm) -> int {
         auto tuple = lua::args<Args...>(vm, 2);
         lua::apply_method<std::tuple_size<decltype(tuple)>::value>
-            ::apply(lua::arg<T>(vm, 1), method, tuple);
+            ::apply(lua::argp<T>(vm, 1), method, tuple);
         return 0;
     });
     vm.lambda(function, name);
@@ -270,7 +272,7 @@ void export_method(Lua& vm, const std::string& name,
 template <typename R, class T>
 void export_method(Lua& vm, const std::string& name, R (T::*method)()) {
     auto function = new std::function<int(Lua&)>([method] (Lua& vm) -> int {
-        return lua::ret<R>(vm, (lua::arg<T>(vm, 1)->*method)());
+        return lua::ret(vm, (lua::argp<T>(vm, 1)->*method)());
     });
     vm.lambda(function, name);
 }
@@ -278,7 +280,7 @@ void export_method(Lua& vm, const std::string& name, R (T::*method)()) {
 template <class T>
 void export_method(Lua& vm, const std::string& name, void (T::*method)()) {
     auto function = new std::function<int(Lua&)>([method] (Lua& vm) -> int {
-        (lua::arg<T>(vm, 1)->*method());
+        (lua::argp<T>(vm, 1)->*method)();
         return 0;
     });
     vm.lambda(function, name);
@@ -289,7 +291,7 @@ void export_function(Lua& vm, const std::string& name,
     R (*callback)(Args...)) {
     auto function = new std::function<int(Lua&)>([callback] (Lua& vm) -> int {
         auto tuple = lua::args<Args...>(vm);
-        return lua::ret<R>(vm,
+        return lua::ret(vm,
             lua::apply_function<std::tuple_size<decltype(tuple)>::value>
                 ::apply(callback, tuple));
     });
@@ -311,7 +313,7 @@ void export_function(Lua& vm, const std::string& name,
 template <typename R>
 void export_function(Lua& vm, const std::string& name, R (*callback)()) {
     auto function = new std::function<int(Lua&)>([callback] (Lua& vm) -> int {
-        return lua::ret<R>(vm, (*callback)());
+        return lua::ret(vm, (*callback)());
     });
     vm.lambda(function, name);
 }

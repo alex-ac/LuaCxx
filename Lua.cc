@@ -46,7 +46,7 @@ void Lua::file(const std::string& name) {
 
 void Lua::load(const std::string& name, int i) {
     int t = i;
-    if (lua_gettop(vm) - (i>0?i:-i) < 1 || !lua_istable(vm, i)) {
+    if (lua_gettop(vm) - (i>0?i:-i) < 0 || !lua_istable(vm, i)) {
         if (-1 == i) 
             t = LUA_GLOBALSINDEX;
         else
@@ -173,6 +173,21 @@ bool Lua::boolean(const int i) {
     if (!lua_isboolean(vm, i))
         luaL_error(vm, "Invalid boolean operation (boolean expected)!");
     return lua_toboolean(vm, i);
+}
+
+void LuaObject::export_class(Lua& vm) {
+}
+
+void LuaObject::export_me(Lua& vm) {
+    util::export_class<LuaObject>(vm);
+}
+
+const std::string LuaObject::class_name() {
+    return "Object";
+}
+
+const std::string LuaObject::obj_class_name() const {
+    return "Object";
 }
 
 void util::export_function(Lua& vm, const std::string& name, void (*callback)()) {
