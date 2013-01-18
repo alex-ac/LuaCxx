@@ -65,26 +65,21 @@ protected:
 
     template <typename T, typename T1, typename... Args>
     std::tuple<T, T1, Args...> args(const int i = 1) {
-        T t = arg<T>( i);
-        return std::tuple_cat(t, args<T1, Args...>( i + 1));
+        return std::tuple_cat(arg<T>(i), args<T1, Args...>(i + 1));
     }
 
     template <typename T>
     std::tuple<T> args(const int i = 1) {
-        return std::tuple<T>(arg<T>( i));
+        return std::tuple<T>(arg<T>(i));
     }
-
-/*    template <typename... Args> struct sizer {
-        static const int size = sizeof...(Args);
-    };*/
 
     template <int N> struct apply_method {
         template <class T, typename R, typename... MethodArgs,
             typename... TupleArgs, typename... Args>
         static R apply(T* o, R (T::*method)(MethodArgs...),
             std::tuple<TupleArgs...>& t, Args... args) {
-            return
-                apply_method<N-1>::apply(o, method, t, std::get<N-1>(t), args...);
+            return apply_method<N-1>::
+                apply(o, method, t, std::get<N-1>(t), args...);
         }
     };
 
@@ -93,16 +88,16 @@ protected:
             typename... Args>
         static R apply(R (*function)(FunctionArgs...),
             std::tuple<TupleArgs...>& t, Args... args) {
-            return
-                apply_function<N-1>::apply(function, t, std::get<N-1>(t), args...);
+            return apply_function<N-1>::
+                apply(function, t, std::get<N-1>(t), args...);
         }
     };
 
     template <int N, class T> struct apply_constructor {
         template <typename... TupleArgs, typename... Args>
         static T * apply(std::tuple<TupleArgs...>& t, Args... args) {
-            return
-                apply_constructor<N-1, T>::apply(t, std::get<N-1>(t), args...);
+            return apply_constructor<N-1, T>::
+                apply(t, std::get<N-1>(t), args...);
         }
     };
 
@@ -219,10 +214,10 @@ public:
     void export_method(const std::string& name,
         R (T::*method)(Args...)) {
         auto function = new std::function<int(Lua&)>([method] (Lua& vm) -> int {
-            auto tuple = vm.args<Args...>( 2);
-            return vm.ret( 
-                apply_method<std::tuple_size<decltype(tuple)>::value>
-                    ::apply(vm.argp<T>( 1), method, tuple));
+            auto tuple = vm.args<Args...>(2);
+            return vm.ret(
+                apply_method<sizeof...(Args)>
+                    ::apply(vm.argp<T>(1), method, tuple));
         });
         lambda(function, name);
     }
@@ -231,9 +226,8 @@ public:
     void export_method(const std::string& name,
         void (T::*method)(Args...)) {
         auto function = new std::function<int(Lua&)>([method] (Lua& vm) -> int {
-            auto tuple = vm.args<Args...>( 2);
-            apply_method<std::tuple_size<decltype(tuple)>::value>
-                ::apply(vm.argp<T>( 1), method, tuple);
+            auto tuple = vm.args<Args...>(2);
+            apply_method<sizeof...(Args)>::apply(vm.argp<T>(1), method, tuple);
             return 0;
         });
         lambda(function, name);
@@ -242,7 +236,7 @@ public:
     template <typename R, class T>
     void export_method(const std::string& name, R (T::*method)()) {
         auto function = new std::function<int(Lua&)>([method] (Lua& vm) -> int {
-            return vm.ret( (vm.argp<T>( 1)->*method)());
+            return vm.ret((vm.argp<T>(1)->*method)());
         });
         lambda(function, name);
     }
@@ -250,7 +244,7 @@ public:
     template <class T>
     void export_method(const std::string& name, void (T::*method)()) {
         auto function = new std::function<int(Lua&)>([method] (Lua& vm) -> int {
-            (vm.argp<T>( 1)->*method)();
+            (vm.argp<T>(1)->*method)();
             return 0;
         });
         lambda(function, name);
@@ -262,8 +256,7 @@ public:
         auto function = new std::function<int(Lua&)>([callback] (Lua& vm) -> int {
             auto tuple = vm.args<Args...>();
             return vm.ret(
-                apply_function<std::tuple_size<decltype(tuple)>::value>
-                    ::apply(callback, tuple));
+                apply_function<sizeof...(Args)>::apply(callback, tuple));
         });
         lambda(function, name);
     }
@@ -273,7 +266,7 @@ public:
         void (*callback)(Args...)) {
         auto function = new std::function<int(Lua&)>([callback] (Lua& vm) -> int {
             auto tuple = vm.args<Args...>();
-            apply_function<std::tuple_size<decltype(tuple)>::value>
+            apply_function<sizeof...(Args)>
                 ::apply(callback, tuple);
             return 0;
         });
@@ -283,7 +276,7 @@ public:
     template <typename R>
     void export_function(const std::string& name, R (*callback)()) {
         auto function = new std::function<int(Lua&)>([callback] (Lua& vm) -> int {
-            return vm.ret( (*callback)());
+            return vm.ret((*callback)());
         });
         lambda(function, name);
     }
@@ -295,8 +288,7 @@ public:
         auto function = new std::function<int(Lua&)>([] (Lua& vm) -> int {
             auto tuple = vm.args<Arg1, Args...>(1);
             T *object =
-                apply_constructor<std::tuple_size<decltype(tuple)>::value, T>
-                    ::apply(tuple);
+                apply_constructor<sizeof...(Args), T>::apply(tuple);
             static_cast<LuaClass *>(object)->enable_tracking();
             return vm.ret(object);
         });
